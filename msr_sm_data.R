@@ -21,10 +21,6 @@
 msr_sm_data <- function( order_level_table, visitor_level_table, days_to_consider = 7, booking_outlier = 0.99, gm_lower_outlier = 0.001, gm_upper_outlier = 0.99, hopper = 0, exposedToTest = 0, control_id = 0, TCR = 0 , TBPB = 0 , TGPB = 0, TBPV = 0, TGPV =0 )
 {
 
-  # Pull order level table , group at visitor level and summarise order_count, booking usd and gm_usd
-  # obselete SubQ <- paste("select visitor_id,max(order_count) as order_count, sum(booking_usd) as booking_usd, sum(GM_usd) as GM_usd from", Order_table_name," where days_from_touch <= ",toString(days_to_consider), " group by visitor_id ")
-  # Obselete OL2 <- sqlQuery(msr,SubQ)
-
   MSR_SM_OV <- subset(order_level_table,days_from_touch <= days_to_consider) %>% group_by(visitor_id) %>% summarise(order_count = max(order_count), booking_usd = sum(booking_usd),gm_usd = sum(gm_usd) )
 
 
@@ -163,35 +159,49 @@ msr_sm_data <- function( order_level_table, visitor_level_table, days_to_conside
 
   }
 
-  # Fill the 95, 90 and 80 confidence ranges in the summary and Fill if it's significant or not
 
-  ## Step 1 - calculate combined variance and relative difference
-
-  MSR_SM_SM2$sd <- sqrt((MSR_SM_SM2$t_var/MSR_SM_SM2$t_denominator_count) + (MSR_SM_SM2$c_var/MSR_SM_SM2$c_denominator_count))
-
-  ## Step 2
-  MSR_SM_SM2$low95 <- ((MSR_SM_SM2$t_value - (1.96*MSR_SM_SM2$sd))-MSR_SM_SM2$c_value)/MSR_SM_SM2$c_value
-  MSR_SM_SM2$low90 <- ((MSR_SM_SM2$t_value - (1.65*MSR_SM_SM2$sd))-MSR_SM_SM2$c_value)/MSR_SM_SM2$c_value
-  MSR_SM_SM2$low80 <- ((MSR_SM_SM2$t_value - (1.29*MSR_SM_SM2$sd))-MSR_SM_SM2$c_value)/MSR_SM_SM2$c_value
-  MSR_SM_SM2$relative_diff = (MSR_SM_SM2$t_value - MSR_SM_SM2$c_value)/MSR_SM_SM2$c_value
-  MSR_SM_SM2$high80 <- ((MSR_SM_SM2$t_value + (1.29*MSR_SM_SM2$sd))-MSR_SM_SM2$c_value)/MSR_SM_SM2$c_value
-  MSR_SM_SM2$high90 <- ((MSR_SM_SM2$t_value + (1.65*MSR_SM_SM2$sd))-MSR_SM_SM2$c_value)/MSR_SM_SM2$c_value
-  MSR_SM_SM2$high95 <- ((MSR_SM_SM2$t_value + (1.96*MSR_SM_SM2$sd))-MSR_SM_SM2$c_value)/MSR_SM_SM2$c_value
-
-  # Say if we need one tail or two tail measurement
+  # what kind of measurement do we need for each metric, 2 tail, postive 1tail or negative 1tail
   MSR_SM_SM2$tail[MSR_SM_SM2$metric == "CR"] <- ifelse(TCR == 0, "2tail", ifelse(TCR == -1, "-1tail","+1tail"))
   MSR_SM_SM2$tail[MSR_SM_SM2$metric == "booking_per_buyer"] <- ifelse(TBPB == 0, "2tail", ifelse(TBPB == -1, "-1tail","+1tail"))
   MSR_SM_SM2$tail[MSR_SM_SM2$metric == "gm_per_buyer"] <- ifelse(TGPB == 0, "2tail", ifelse(TGPB == -1, "-1tail","+1tail"))
   MSR_SM_SM2$tail[MSR_SM_SM2$metric == "booking_per_visitor"] <- ifelse(TBPV == 0, "2tail", ifelse(TBPV == -1, "-1tail","+1tail"))
   MSR_SM_SM2$tail[MSR_SM_SM2$metric == "gm_per_visitor"] <- ifelse(TGPV == 0, "2tail", ifelse(TGPV == -1, "-1tail","+1tail"))
 
-  # Calculate if the significance
+  # what kind of tail is used for measurement (1 = 1 tail , 2 = two tail)
+  MSR_SM_SM2$tail_type[MSR_SM_SM2$metric == "CR"] <- ifelse(TCR == 0, 2,1)
+  MSR_SM_SM2$tail_type[MSR_SM_SM2$metric == "booking_per_buyer"] <- ifelse(TBPB == 0, 2,1)
+  MSR_SM_SM2$tail_type[MSR_SM_SM2$metric == "gm_per_buyer"] <- ifelse(TGPB == 0,2,1)
+  MSR_SM_SM2$tail_type[MSR_SM_SM2$metric == "booking_per_visitor"] <- ifelse(TBPV == 0, 2,1)
+  MSR_SM_SM2$tail_type[MSR_SM_SM2$metric == "gm_per_visitor"] <- ifelse(TGPV == 0, 2,1)
+
+  # Fill the 95, 90 and 80 confidence ranges in the summary and Fill if it's significant or not
+
+  ## Step 1 - calculate the std deviation
+
+  MSR_SM_SM2$sd <- sqrt((MSR_SM_SM2$t_var/MSR_SM_SM2$t_denominator_count) + (MSR_SM_SM2$c_var/MSR_SM_SM2$c_denominator_count))
+
+
+
+  ## Step 2 - pull confidence interval and calculate relative diff
+
+
+  MSR_SM_SM2$low95 <- ((MSR_SM_SM2$t_value - (ifelse(MSR_SM_SM2$tail_type == 1,1.6449,1.96)*MSR_SM_SM2$sd))-MSR_SM_SM2$c_value)/MSR_SM_SM2$c_value
+  MSR_SM_SM2$low90 <- ((MSR_SM_SM2$t_value - (ifelse(MSR_SM_SM2$tail_type == 1,1.2816,1.6449)*MSR_SM_SM2$sd))-MSR_SM_SM2$c_value)/MSR_SM_SM2$c_value
+  MSR_SM_SM2$low80 <- ((MSR_SM_SM2$t_value - (ifelse(MSR_SM_SM2$tail_type == 1,0.8416,1.2816)*MSR_SM_SM2$sd))-MSR_SM_SM2$c_value)/MSR_SM_SM2$c_value
+  MSR_SM_SM2$relative_diff = (MSR_SM_SM2$t_value - MSR_SM_SM2$c_value)/MSR_SM_SM2$c_value
+  MSR_SM_SM2$high80 <- ((MSR_SM_SM2$t_value + (ifelse(MSR_SM_SM2$tail_type == 1,0.8416,1.2816)*MSR_SM_SM2$sd))-MSR_SM_SM2$c_value)/MSR_SM_SM2$c_value
+  MSR_SM_SM2$high90 <- ((MSR_SM_SM2$t_value + (ifelse(MSR_SM_SM2$tail_type == 1,1.2816,1.6449)*MSR_SM_SM2$sd))-MSR_SM_SM2$c_value)/MSR_SM_SM2$c_value
+  MSR_SM_SM2$high95 <- ((MSR_SM_SM2$t_value + (ifelse(MSR_SM_SM2$tail_type == 1,1.6449,1.96)*MSR_SM_SM2$sd))-MSR_SM_SM2$c_value)/MSR_SM_SM2$c_value
+
+
+  # step 3 : Calculate if the significance
   MSR_SM_SM2$significance[MSR_SM_SM2$tail == "2tail"] <- ifelse(MSR_SM_SM2$z_score[MSR_SM_SM2$tail == "2tail"]  <= -1.96,"Significant Increase",ifelse(MSR_SM_SM2$z_score[MSR_SM_SM2$tail == "2tail"]  >= 1.96,"Significant Decrease","Not significant"))
   MSR_SM_SM2$significance[MSR_SM_SM2$tail == "-1tail"] <- ifelse(MSR_SM_SM2$z_score[MSR_SM_SM2$tail == "-1tail"] >= 1.6449,"Significant Decrease","Not significant")
   MSR_SM_SM2$significance[MSR_SM_SM2$tail == "+1tail"] <- ifelse(MSR_SM_SM2$z_score[MSR_SM_SM2$tail == "+1tail"] <= -1.6449,"Significant Increase","Not significant")
   MSR_SM_SM2$chart_value[MSR_SM_SM2$tail == "2tail"] <- ifelse(MSR_SM_SM2$z_score[MSR_SM_SM2$tail == "2tail"]  <= -1.96,1,ifelse(MSR_SM_SM2$z_score[MSR_SM_SM2$tail == "2tail"]  >= 1.96,5,3))
   MSR_SM_SM2$chart_value[MSR_SM_SM2$tail == "-1tail"] <- ifelse(MSR_SM_SM2$z_score[MSR_SM_SM2$tail == "-1tail"] >= 1.6449,5,3)
   MSR_SM_SM2$chart_value[MSR_SM_SM2$tail == "+1tail"] <- ifelse(MSR_SM_SM2$z_score[MSR_SM_SM2$tail == "+1tail"] <= -1.6449,1,3)
+
 
 
   # For graphing purposes , Multiple CR by 100

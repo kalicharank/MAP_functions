@@ -1,11 +1,22 @@
 #MSR Cohort Module Data Function
 #Author: Christian Ulmer
-#Last Update: 7/29/2015
+#Last Update: 9/4/2015
 #' MSR cohort module data function
 #'
 #' To produce cohort level summary data
-#' @description cohort level summary data
-#' @return  summary metrics at cohort level
+#' @description Takes the order level and visitor level tables from the order and visitor modules and produces summary metrics for each specified cohort
+#' @return  data frame with metrics for each cohort and test cell with significances and z scores
+#' @param order_level_table Output from order sproc
+#' @param visitor_level_table Output from visitor sproc
+#' @param cohort_list list of cohorts (breakdowns) by which to group the data
+#' @param days_to_consider No of days allowed from first touch point to an order for metric calculations
+#' @param booking_outlier Ordering visitors whose bookings  fall above this limit is capped
+#' @param gm_lower_outlier Ordering visitors whose GM fall above this limit is capped
+#' @param gm_upper_outlier Ordering visitors whose GM  fall below this limit is capped
+#' @param hopper 0 to exclude hoppers from analysis
+#' @param exposed_to_test To exclude visitors who are assigned to test, but not exposed to them (default is 0 , to include all visitors in analysis)
+#' @param control_id The test_sub_id  against which all other test_sub_id is evaluated against
+#' @example output_table <- msr_cohm_data(order_level_table = OL,visitor_level_table = VL,cohort_list = c("is_new","region"),control_id = 25512)
 #' @export
 
 
