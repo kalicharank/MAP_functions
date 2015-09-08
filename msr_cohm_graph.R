@@ -3,7 +3,6 @@
 #' Produces graph by different dimensions
 #' @description Takes output data frame from the msr_cohm_data function and produces summary charts for CR, bookings and GM per buyer for each test cell by dimension
 #' @param cohort_data_output the output from cohort data module
-#' @example msr_cohm_graph(output_table)
 #' @export
 
 msr_cohm_graph <- function(msr_cohm_data_output_table)

@@ -16,7 +16,6 @@
 #' @param hopper 0 to exclude hoppers from analysis
 #' @param exposed_to_test To exclude visitors who are assigned to test, but not exposed to them (default is 0 , to include all visitors in analysis)
 #' @param control_id The test_sub_id  against which all other test_sub_id is evaluated against
-#' @example output_table <- msr_cohm_data(order_level_table = OL,visitor_level_table = VL,cohort_list = c("is_new","region"),control_id = 25512)
 #' @export
 
 
