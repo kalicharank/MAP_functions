@@ -8,14 +8,14 @@ msr_outlier_booking_data <- function(order_level_table, visitor_level_table, day
 
   OL <- filter(order_level_table,days_from_touch <= days_to_consider)
 
-  # Remove hoppers
-  VL <- filter(visitor_level_table,is_hopper <= hopper)
+
 
   # Remove if exposed to test constraint
   if(exposedToTest == 1)
   {VL <- subset(VL,exposed_to_test == 1)}
 
-  VL <- filter(VL, control_test != 'AC')
+  # Remove hoppers and alt control cell
+  VL <- filter(VL, control_test != 'AC' & is_hopper <= hopper)
 
   #create a buyer level table from the order table
   BL <- OL %>%
@@ -30,6 +30,16 @@ msr_outlier_booking_data <- function(order_level_table, visitor_level_table, day
 
   ##recreate buyer level table after filtering for hoppers and exposed to test
   BL2 <-filter(VL2, order_count > 0)
+
+
+  ## data to plot frequency plot by graph.
+  bkg_dist <- BL2
+  bucket_width <- 5 # the minimum resolution that's going to be used in this case
+
+  bkg_dist$bucket <- floor(bkg_dist[ , c('booking_usd')]/bucket_width)
+  bkg_dist <- bkg_dist %>%  group_by(bucket, test_sub_name) %>% summarise(no_of_ordering_visitors = sum(visitor_id > 0))
+
+
 
   ##defining list of cutoffs to look at for $/buyer
   bk_cutoffs_high <- seq(from = 0.99, to = 1.00, by = 0.001)
@@ -87,6 +97,6 @@ msr_outlier_booking_data <- function(order_level_table, visitor_level_table, day
     }
   }
 
-  return(Bkg_loop_final)
+  return(list(Bkg_loop_final,bkg_dist))
 
 }

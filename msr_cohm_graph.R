@@ -69,7 +69,7 @@ msr_cohm_graph <- function(msr_cohm_data_output_table)
     temp_bb_chart <- ggplot(data=Temp1,aes(y=dimension,x=bookings_buyer_diff)) +
       geom_bar_horz(position="identity",stat="identity",aes(fill=factor(bookings_buyer_chart_value))) + #creates the horizontal bars, color based on chart_value
       geom_text(aes(y=dimension,x=0,label=paste("$",round(c_bookings_buyer,digits=2)),size=5)) + #adds the values for control
-      scale_fill_manual(values = c("1"="#EFFFEF","2" = "#CCE5CC","3" = "#8E8E8E","4" = "#FFC0CB" ,"5" = "#FF0000" )) + #dark red, red, gray, green, dark green based on chart_value 1,2,3,4,5
+      scale_fill_manual(values = c("1"="#84A384","2" = "#8E8E8E","3" = "#8E8E8E","4" = "#8E8E8E" ,"5" = "#9E5E5E" )) + #dark red, gray, gray, gray, dark green based on chart_value 1,2,3,4,5
       theme_bw() + #remove gray background
       theme(legend.position = "none",axis.title.y = element_blank(),strip.text.y = element_text(size=10)) + #take away legend, y-axis title, resize cohorts
       xlab("% Change from control") + #label x-axis
@@ -81,7 +81,7 @@ msr_cohm_graph <- function(msr_cohm_data_output_table)
     temp_gmb_chart <- ggplot(data=Temp1,aes(y=dimension,x=gm_buyer_diff)) +
       geom_bar_horz(position="identity",stat="identity",aes(fill=factor(gm_buyer_chart_value))) +
       geom_text(aes(y=dimension,x=0,label=paste("$",round(c_gm_buyer,digits=2)),size=5)) +
-      scale_fill_manual(values = c("1"="#EFFFEF","2" = "#CCE5CC","3" = "#8E8E8E","4" = "#FFC0CB" ,"5" = "#FF0000" )) +
+      scale_fill_manual(values = c("1"="#84A384","2" = "#8E8E8E","3" = "#8E8E8E","4" = "#8E8E8E" ,"5" = "#9E5E5E"  )) +
       theme_bw() +
       theme(legend.position = "none",axis.title.y = element_blank(),axis.text.y=element_blank()) +
       xlab("% Change from control") +
@@ -93,7 +93,7 @@ msr_cohm_graph <- function(msr_cohm_data_output_table)
     temp_cr_chart <- ggplot(data=Temp1,aes(y=dimension,x=cr_diff)) +
       geom_bar_horz(position="identity",stat="identity",aes(fill=factor(cr_chart_value))) +
       geom_text(aes(y=dimension,x=0,label=paste(round(c_cr,digits=3)*100,'%'), size = 5)) +
-      scale_fill_manual(values = c("1"="#EFFFEF","2" = "#CCE5CC","3" = "#8E8E8E","4" = "#FFC0CB" ,"5" = "#FF0000" )) +
+      scale_fill_manual(values = c("1"="#84A384","2" = "#8E8E8E","3" = "#8E8E8E","4" = "#8E8E8E" ,"5" = "#9E5E5E"  )) +
       theme_bw() +
       theme(legend.position = "none",axis.title.y = element_blank(),axis.text.y=element_blank()) +
       xlab("% Change from control") +

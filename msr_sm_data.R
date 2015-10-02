@@ -202,7 +202,8 @@ msr_sm_data <- function( order_level_table, visitor_level_table, days_to_conside
   MSR_SM_SM2$chart_value[MSR_SM_SM2$tail == "-1tail"] <- ifelse(MSR_SM_SM2$z_score[MSR_SM_SM2$tail == "-1tail"] >= 1.6449,5,3)
   MSR_SM_SM2$chart_value[MSR_SM_SM2$tail == "+1tail"] <- ifelse(MSR_SM_SM2$z_score[MSR_SM_SM2$tail == "+1tail"] <= -1.6449,1,3)
 
-
+  #step 4: Calculate sensitivity
+  MSR_SM_SM2$sensitivity <- ifelse(MSR_SM_SM2$tail_type == 1,1.6449,1.96)*MSR_SM_SM2$sd/MSR_SM_SM2$c_value
 
   # For graphing purposes , Multiple CR by 100
   MSR_SM_SM2$t_value[MSR_SM_SM2$metric =="CR"] <- MSR_SM_SM2$t_value[MSR_SM_SM2$metric =="CR"]*100
