@@ -75,7 +75,7 @@ msr_sanity_dailyCR_data <- function(order_level_table, visitor_level_table, days
       CR1 <- cbind(control_metadata, test_metadata, CR[, 2:7], z_score = Ttest$statistic, pvalue = Ttest$p.value, touch_date = as.Date(Touch_date_X, origin="1970-01-01"))
 
       CR1$significant <- ifelse(CR1$z_score >1.96, 1, ifelse(CR1$z_score < -1.96, 1, 0))
-      CR1$per_change <- 100*((CR1$t_value - CR1$c_value)/CR1$c_value)
+      CR1$per_change <- ((CR1$t_value - CR1$c_value)/CR1$c_value)
 
       if(is.null(VLsum_final))
       { VLsum_final <- CR1

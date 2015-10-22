@@ -5,7 +5,7 @@
 
 msr_sanity_cumulativeCR_data <- function(order_level_table, visitor_level_table, days_to_consider, hopper, exposedToTest, control_id)
 {
-
+  # debug order_level_table = OL; visitor_level_table = VL ; days_to_consider = 7; hopper = 0; exposedToTest =1; control_id = 25801
 
   OL <- filter(order_level_table,days_from_touch <= days_to_consider)
 
@@ -23,91 +23,77 @@ msr_sanity_cumulativeCR_data <- function(order_level_table, visitor_level_table,
     group_by(test_id, visitor_id, test_sub_id, control_test, test_name, test_sub_name, touch_date) %>%
     summarise(booking_usd = sum(booking_usd),gm_usd = sum(gm_usd), order_count = max(order_count), min_order_date = min(order_date))
 
+  BL$min_order_date <- as.Date(as.character(BL$min_order_date))
+
   #create a visitor level table with order info
   VL2 <- left_join(VL, BL[,c("visitor_id","booking_usd","gm_usd", "order_count", "min_order_date")], by = "visitor_id")
+
+  VL2$ordered <- ifelse(!is.na(VL2$order_count),1,0)
 
   #update date
   VL2$touch_date <- as.Date(as.character(VL2$touch_date))
 
-  ##recreate buyer level table after filtering for hoppers and exposed to test
-  BL2 <-filter(VL2, order_count > 0)
 
-  ##cumulative Visitor counts
-  VLcum_pop <- {}
+  # set the date threshold for your analysis
+  min_date  <- as.Date(as.character(min(VL2$touch_date)))
+  max_date  <- as.Date(as.character(max(BL$min_order_date)))
+  date_seq <- data.frame(seq(min_date, max_date,1))
 
-  for (grp in unique(VL2$test_sub_id)){
-    subs <- filter(VL2, test_sub_id == grp)
+  # pulls the test_sub_id and thier name
+  test_sub_id_seq <- (VL %>% group_by(test_sub_id, test_sub_name) %>% summarise(cnt = sum(1)))[ ,c(1,2)]
 
-    #summary information
-    subs_info <- subs  %>%
-      group_by(test_sub_name, test_sub_id, control_test, touch_date) %>%
-      summarise(visitor_count = sum(visitor_id >0)) %>%
-      arrange(touch_date) %>%
-      mutate(cum_visitor_count = cumsum(visitor_count))
+  # cartesian merge date and test_sub_id
+  main_table <- merge(date_seq , test_sub_id_seq)
+  names(main_table) <- c('date_x', 'test_sub_id', 'test_sub_name')
 
-    # adding values to summ dataframe
-    if(is.null(VLcum_pop))  {
-      VLcum_pop <- subs_info
-    }
-    else {
-      VLcum_pop <- rbind(VLcum_pop,subs_info)
-    }
-  }
+  ## Group visitor count by touch date
+  visitor_count <- VL2 %>% group_by(test_sub_id, touch_date) %>% summarise(visitor_count = sum(visitor_id >0))
+  names(visitor_count) <- c('test_sub_id', 'date_x','visitor_cnt' )
+  visitor_count <- left_join(main_table, visitor_count, by = c('test_sub_id','date_x'))
+  visitor_count[is.na(visitor_count$visitor_cnt),c('visitor_cnt')] <- 0
 
-  colnames(VLcum_pop)[colnames(VLcum_pop) == 'test_sub_id.x'] <- 'test_sub_id'
+  # group ordering buyers by min_order_date
+  buyer_count <- filter(VL2,ordered ==1)  %>% group_by(test_sub_id, min_order_date) %>% summarise(buyer_cnt = sum(visitor_id >0))
+  names(buyer_count) <- c('test_sub_id', 'date_x','buyer_cnt' )
+  buyer_count <- left_join(main_table[ , c('date_x', 'test_sub_id')], buyer_count, by = c('test_sub_id','date_x'))
+  buyer_count[is.na(buyer_count$buyer_cnt),c('buyer_cnt')] <- 0
 
-  ##cumulative Buyer counts (TAKES LONGER)
-  VLcum_buyers<- {}
-  BL2$touch_date <- as.Date(as.character(BL2$touch_date))
-  BL2$min_order_date <- as.Date(as.character(BL2$min_order_date))
+  # combine buyer and order count
+  combined_count <- inner_join(visitor_count, buyer_count, by = c('date_x','test_sub_id'))
 
+  # calculate the cumulate visitor and buyer count by date_x for each test_sub_id
+  combined_count <- combined_count %>% group_by(test_sub_id) %>% arrange(date_x) %>% mutate(cum_visitor_cnt = cumsum(visitor_cnt), cum_buyer_cnt = cumsum(buyer_cnt))
 
-  ##counting cumulative buyers for each new day test was running
-  for (day in unique(as.numeric(BL2$touch_date))) {
+  # filter if any rows has zero count, so you dont get divide by zero when calculating CR. This step is because i am paranoid of div by zero.
+  combined_count <- filter(combined_count, cum_visitor_cnt > 0 )
 
-    #touch_date less than date  (try using filter instead)
-    BL_sub <- subset(BL2, as.numeric(BL2$touch_date) <= day)
-    BL_sub <- subset(BL_sub, as.numeric(BL_sub$min_order_date) <= day)
+  # Calculate CR
+  combined_count$CR <- combined_count$cum_buyer_cnt/combined_count$cum_visitor_cnt
 
-    #buyer level table in timeframe
-    BL_sub1 <- BL_sub %>% group_by(visitor_id, test_sub_name, test_sub_id, control_test) %>% summarise(order_count = max(order_count))
-    #summarising to get distinct buyer count
-    BL_sub1 <- BL_sub1 %>% group_by(test_sub_name, test_sub_id, control_test) %>% summarise(cum_buyer_count = sum(visitor_id > 0))
+  # split control and test and combine them column wise
+  cum_control <- filter(combined_count, test_sub_id == control_id)
+  cum_test <- filter(combined_count, test_sub_id != control_id)
+  cum_final <- inner_join(cum_control[, c('date_x',"cum_visitor_cnt",'cum_buyer_cnt','CR')], cum_test[, c('date_x','test_sub_name',"cum_visitor_cnt",'cum_buyer_cnt','CR')], by = 'date_x')
+  names(cum_final) <- c('dateVariable','cum_visitor_ctrl','cum_buyers_ctrl','CR_ctrl','test_sub_name','cum_visitor_test','cum_buyers_test','CR_test')
 
-    BL_sub1$dateVariable <- c(as.Date(day, origin="1970-01-01"))
-
-    if(is.null(VLcum_buyers))  {
-      VLcum_buyers <- BL_sub1
-    }
-    else {
-      VLcum_buyers <- rbind(VLcum_buyers,BL_sub1)
-    }
-  }
-
-  colnames(VLcum_pop)[colnames(VLcum_pop) == 'touch_date'] <- 'dateVariable'
-  VL_cum_final <- inner_join(VLcum_pop, VLcum_buyers, by = c("test_sub_name","test_sub_id","control_test","dateVariable"))
-
-  #add in CR
-  VL_cum_final$CR <- (VL_cum_final$cum_buyer_count/VL_cum_final$cum_visitor_count)
-
-  VL_cum_compare <- subset(VL_cum_final, test_sub_id == control_id)
-  VL_cum_final <- subset(VL_cum_final, test_sub_id != control_id)
-
-  #UPDATE THIS WITH COLUMN NAMES
-  VL_cum_final <- left_join(VL_cum_final, VL_cum_compare[,c("test_sub_name","dateVariable", "cum_visitor_count", "cum_buyer_count", "CR")], by = "dateVariable")
-
-  #rename the columns
-  names(VL_cum_final) <- c("test_sub_name","test_sub_id", "control_test", "dateVariable" ,"visitor_test", "cum_visitor_test", "cum_buyers_test", "CR_test","sub_name_compared", "cum_visitor_ctrl", "cum_buyers_ctrl", "CR_ctrl")
 
   #add in percent lift
-  VL_cum_final$perc_lift <- (VL_cum_final$CR_test - VL_cum_final$CR_ctrl)/VL_cum_final$CR_ctrl
-  #add in the z score
+  cum_final$perc_lift <- (cum_final$CR_test - cum_final$CR_ctrl)/cum_final$CR_ctrl
 
-  VL_cum_final$zscore <- (VL_cum_final$CR_test-VL_cum_final$CR_ctrl)/sqrt((VL_cum_final$CR_test*(1-VL_cum_final$CR_test)/VL_cum_final$cum_visitor_test)+(VL_cum_final$CR_ctrl*(1-VL_cum_final$CR_ctrl)/VL_cum_final$cum_visitor_ctrl))
+  # add SD
+  cum_final$sd <- sqrt((cum_final$CR_test*(1-cum_final$CR_test)/cum_final$cum_visitor_test)+(cum_final$CR_ctrl*(1-cum_final$CR_ctrl)/cum_final$cum_visitor_ctrl))
+
+  #add in sensitivity
+  cum_final$sensitivity <- 1.96*cum_final$sd/cum_final$CR_ctrl
+
+  # Add z score
+  cum_final$zscore <- (cum_final$CR_test-cum_final$CR_ctrl)/cum_final$sd
+
   #flagging significance
-  VL_cum_final$significant <- ifelse(VL_cum_final$zscore >1.96, 1, ifelse(VL_cum_final$zscore < -1.96, 1, 0))
+  cum_final$significant <- ifelse(cum_final$zscore >1.96, 1, ifelse(cum_final$zscore < -1.96, 1, 0))
 
-  return(VL_cum_final)
+
+  return(cum_final)
 
 }
 

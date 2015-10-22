@@ -9,19 +9,27 @@
 
 msr_sm_graph <- function(graph_data , only_for_test_sub_id = 0)
 {
-
+  # checks if the vistaprint package is stale or not
+  check_package_no()
   # useful for debugging
-  # graph_data = sm; only_for_test_sub_id = 0 ; TestNum_x = unique(graph_data$t_id)
+  # graph_data = map_summary_data; only_for_test_sub_id = 0 ; TestNum_x = 25900
 
   if(only_for_test_sub_id != 0)
   {graph_data <- subset(graph_data,t_id == only_for_test_sub_id)}
 
+  # make sensitivity NA for any significant values
   graph_data$sensitivity[graph_data$chart_value != 3] <- NA
+
+  # if not signifcant, we will plot the 95% confidence boundry instead of 80% confidence boundry
+  graph_data$low80[graph_data$chart_value == 3] <- graph_data$low95[graph_data$chart_value == 3]
+  graph_data$high80[graph_data$chart_value == 3] <- graph_data$high95[graph_data$chart_value == 3]
 
   # Form a loop, to print one graph for each test value
   for(TestNum_x in unique(graph_data$t_id)){
 
     graph_data_subset <- subset(graph_data, t_id == TestNum_x)
+
+    graph_data_subset2 <- subset(graph_data_subset,chart_value == 3)
 
 
 
@@ -31,12 +39,12 @@ msr_sm_graph <- function(graph_data , only_for_test_sub_id = 0)
     grange <- abs(gmax - gmin)
     # gbreak <- round(grange/7, digits = 3)
     # axis_seq <- c(rev(seq(0,gmin,-gbreak)),seq(gbreak,gmax,gbreak) ) # not used right now
-    Limits <- c((gmin - grange*0.3),(gmax + grange*0.20) )
-    graph_data_subset$axis_min <- (gmin - grange*0.3)
-    graph_data_subset$axis_max <- (gmax + grange*0.20)
+    Limits <- c((gmin - grange*0.4),(gmax + grange*0.40) )
+    graph_data_subset$axis_min <- (gmin - grange*0.4)
+    graph_data_subset$axis_max <- (gmax + grange*0.4)
     graph_data_subset$sensitivity_pos <- graph_data_subset$axis_max - (1.5*(grange/10))
 
-    axis_min <- (gmin - grange*0.3)
+    axis_min <- (gmin - grange*0.4)
     control_text <- axis_min +(0.5*(grange/10))
     test_text <- axis_min +(2*(grange/10))
     graph_data_subset$control_text <- axis_min +(0.5*(grange/10))
@@ -83,11 +91,15 @@ msr_sm_graph <- function(graph_data , only_for_test_sub_id = 0)
       geom_text(aes(x=metric,y= relative_diff,label = paste(round( relative_diff*100, digits = 2),'%',sep = '')),  vjust = -0.6, angle = 90, color = "White" ,  size = txt_size ) +
       # is this one tail or two tail measurement
       geom_text(aes(x=metric,y= axis_max,label = tail),  vjust = 1, angle = 90,  size = txt_size) +
-      # Add sensitivity information
-      geom_text(data = subset(graph_data_subset,chart_value == 3), aes(x=metric,y= sensitivity_pos,label = paste(round( sensitivity*100, digits = 2),'%',sep = '') ),  vjust = 0.5,  size = txt_size +1) +
+
       # axis limits and show xaxis as %
       scale_y_continuous(labels = percent, limits = Limits)
 
+      # Add sensitivity information
+    if(dim(graph_data_subset2)[1] > 0)
+    {
+       chart <- chart + geom_text(data = subset(graph_data_subset,chart_value == 3), aes(x=metric,y= sensitivity_pos,label = paste(round( sensitivity*100, digits = 2),'%',sep = '') ),  vjust = 0.5,  size = txt_size +1)
+    }
     print(chart)
 
 

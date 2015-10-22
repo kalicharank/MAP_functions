@@ -8,7 +8,8 @@
 msr_data_distributions <- function(connection_name, table_name, test_type_id = 1, days_interval = "1 days"){
   #connection_name <- msr ; table_name <- 'msr_analytics..MSR_VL_2_1' ; test_type_id = 2; days_interval = "1 days"
 
-
+  # checks if the vistaprint package is stale or not
+  check_package_no()
 
   # Pull the no of visitors by test_sub_id
   qry <- paste("select test_sub_name , control_test, count(*) as no_visitors from ",table_name, " where is_hopper = 0  group by test_sub_name, control_test", sep = "")
@@ -171,7 +172,7 @@ msr_data_distributions <- function(connection_name, table_name, test_type_id = 1
 #' To product subplots
 #' @description Produces subplot
 #' @return  combined graph
-
+#' @export
 multiplot <- function(..., plotlist=NULL, file, cols=1, layout=NULL) {
   library(grid)
 
@@ -207,4 +208,29 @@ multiplot <- function(..., plotlist=NULL, file, cols=1, layout=NULL) {
     }
   }
 }
+
+#' To ensure that you are using the latest version of vistaprintMAP
+#' @description checks if your vistaprintMAP package version no is stale or not
+#' @return  an error if your package version is stale
+#' @export
+check_package_no <- function(){
+  load("//vistaprint.net/common/share/Marketing/Public/Marketing_Analysis/MAP/DoNotTouch/package_no.Rdata")
+  if (!(packageDescription("vistaprintMAP")$Version %in% xyz_package_no ))
+  {  stop(print("You are using an older version of vistaprintMAP package, pls update your package from http://corewiki.cimpress.net/wiki/MAP#MAP_package"))
+    }
+
+}
+
+#' To ensure that you are using the latest version of Rmarkdown script
+#' @description checks if your Rmarkdown script is stale
+#' @return  an error if your package version is stale
+#' @export
+check_report_no <- function(script_no){
+  load("//vistaprint.net/common/share/Marketing/Public/Marketing_Analysis/MAP/DoNotTouch/report_no.Rdata")
+  if (!(script_no %in% xyz_report_no ))
+  {  stop(print("You are using an old version of the MAP report template, pls update R-markdown template from http://corewiki.cimpress.net/wiki/MAP_templates"))
+  }
+
+}
+
 
